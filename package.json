@@ -1,0 +1,17 @@
+{
+  "name": "datashield",
+  "version": "1.0.0",
+  "description": "DataShield - Plataforma de Anonimización de Datos",
+  "scripts": {
+    "start": "node backend/src/index.js",
+    "build": "cd frontend && npm install && npm run build",
+    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
+    "install:all": "cd backend && npm install && cd ../frontend && npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["anonimización", "datos", "privacidad", "GDPR"],
+  "author": "DataShield España",
+  "license": "MIT"
+}
