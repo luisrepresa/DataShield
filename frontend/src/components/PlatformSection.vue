@@ -65,6 +65,96 @@
                 <span v-if="isProcessing" class="spinner"></span>
                 {{ isProcessing ? 'Analizando...' : 'Detectar Datos Sensibles' }}
               </button>
+              <button 
+                class="btn btn-secondary"
+                @click="showManualSelection = true"
+                :disabled="!originalText.trim()"
+              >
+                <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                </svg>
+                Selección Manual
+              </button>
+            </div>
+          </div>
+          
+          <!-- Modal de Selección Manual -->
+          <div v-if="showManualSelection" class="manual-selection-overlay" @click.self="showManualSelection = false">
+            <div class="manual-selection-modal">
+              <div class="modal-header">
+                <h3>
+                  <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                  </svg>
+                  Selección Manual de Datos
+                </h3>
+                <button class="btn-close" @click="showManualSelection = false">×</button>
+              </div>
+              
+              <div class="modal-body">
+                <p class="modal-instructions">
+                  <strong>Instrucciones:</strong> Selecciona texto con el ratón y elige el tipo de dato para etiquetarlo.
+                </p>
+                
+                <div class="text-selection-area">
+                  <div 
+                    class="selectable-text"
+                    ref="selectableText"
+                    @mouseup="handleTextSelection"
+                    v-html="getHighlightedText()"
+                  ></div>
+                </div>
+                
+                <!-- Popup de selección de tipo -->
+                <div 
+                  v-if="showTypeSelector" 
+                  class="type-selector-popup"
+                  :style="{ top: typeSelectorPosition.top + 'px', left: typeSelectorPosition.left + 'px' }"
+                >
+                  <p class="selected-preview">"{{ selectedText }}"</p>
+                  <div class="type-buttons">
+                    <button 
+                      v-for="type in dataTypes" 
+                      :key="type.id"
+                      class="type-btn"
+                      :class="type.color"
+                      @click="addManualTag(type.id)"
+                    >
+                      <span class="type-icon">{{ type.icon }}</span>
+                      {{ type.label }}
+                    </button>
+                  </div>
+                </div>
+                
+                <!-- Lista de datos etiquetados manualmente -->
+                <div v-if="manualTags.length > 0" class="manual-tags-list">
+                  <h4>Datos etiquetados ({{ manualTags.length }})</h4>
+                  <div class="tags-grid">
+                    <div 
+                      v-for="(tag, index) in manualTags" 
+                      :key="index"
+                      class="manual-tag-item"
+                    >
+                      <span class="tag-original">{{ tag.original }}</span>
+                      <span class="tag-arrow">→</span>
+                      <span :class="'tag tag-' + getTagColor(tag.type)">{{ tag.type }}</span>
+                      <button class="btn-remove" @click="removeManualTag(index)">×</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="modal-footer">
+                <button class="btn btn-outline-dark" @click="clearManualTags">
+                  Limpiar Todo
+                </button>
+                <button class="btn btn-primary" @click="applyManualTags" :disabled="manualTags.length === 0">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  </svg>
+                  Aplicar {{ manualTags.length }} etiqueta{{ manualTags.length !== 1 ? 's' : '' }}
+                </button>
+              </div>
             </div>
           </div>
           
@@ -232,7 +322,30 @@ export default {
       showToast: false,
       toastMessage: '',
       toastType: 'success',
-      currentMapping: {}
+      currentMapping: {},
+      // Manual selection
+      showManualSelection: false,
+      showTypeSelector: false,
+      selectedText: '',
+      selectionRange: null,
+      typeSelectorPosition: { top: 0, left: 0 },
+      manualTags: [],
+      dataTypes: [
+        { id: 'NOMBRE', label: 'Nombre', icon: '👤', color: 'danger' },
+        { id: 'EMAIL', label: 'Email', icon: '📧', color: 'primary' },
+        { id: 'TELEFONO', label: 'Teléfono', icon: '📱', color: 'success' },
+        { id: 'DNI', label: 'DNI/NIE', icon: '🪪', color: 'warning' },
+        { id: 'DIRECCION', label: 'Dirección', icon: '🏠', color: 'info' },
+        { id: 'FECHA', label: 'Fecha', icon: '📅', color: 'success' },
+        { id: 'IBAN', label: 'IBAN/Cuenta', icon: '🏦', color: 'primary' },
+        { id: 'TARJETA', label: 'Tarjeta', icon: '💳', color: 'danger' },
+        { id: 'IP', label: 'IP', icon: '🌐', color: 'warning' },
+        { id: 'EMPRESA', label: 'Empresa', icon: '🏢', color: 'info' },
+        { id: 'MATRICULA', label: 'Matrícula', icon: '🚗', color: 'secondary' },
+        { id: 'NSS', label: 'Nº Seg. Social', icon: '📋', color: 'warning' },
+        { id: 'PASAPORTE', label: 'Pasaporte', icon: '🛂', color: 'danger' },
+        { id: 'OTRO', label: 'Otro', icon: '🏷️', color: 'secondary' }
+      ]
     }
   },
   methods: {
@@ -279,6 +392,105 @@ ES91 2100 0418 4502 0005 1332 solicitando documentación adicional.
       }
     },
     
+    // Manual selection methods
+    handleTextSelection(event) {
+      const selection = window.getSelection()
+      const text = selection.toString().trim()
+      
+      if (text && text.length > 0) {
+        this.selectedText = text
+        this.selectionRange = selection.getRangeAt(0).cloneRange()
+        
+        // Position the popup near the selection
+        const rect = selection.getRangeAt(0).getBoundingClientRect()
+        const modalRect = this.$refs.selectableText.getBoundingClientRect()
+        
+        this.typeSelectorPosition = {
+          top: rect.bottom - modalRect.top + 10,
+          left: Math.min(rect.left - modalRect.left, modalRect.width - 300)
+        }
+        
+        this.showTypeSelector = true
+      } else {
+        this.showTypeSelector = false
+      }
+    },
+    
+    addManualTag(type) {
+      if (!this.selectedText) return
+      
+      // Check if this text is already tagged
+      const exists = this.manualTags.some(tag => tag.original === this.selectedText)
+      if (exists) {
+        this.showNotification('Este texto ya está etiquetado', 'warning')
+        this.showTypeSelector = false
+        return
+      }
+      
+      const id = this.generateId()
+      this.manualTags.push({
+        original: this.selectedText,
+        type: type,
+        id: id,
+        start: this.originalText.indexOf(this.selectedText),
+        end: this.originalText.indexOf(this.selectedText) + this.selectedText.length
+      })
+      
+      this.showTypeSelector = false
+      this.selectedText = ''
+      window.getSelection().removeAllRanges()
+      
+      this.showNotification(`"${this.manualTags[this.manualTags.length - 1].original}" etiquetado como ${type}`, 'success')
+    },
+    
+    removeManualTag(index) {
+      this.manualTags.splice(index, 1)
+    },
+    
+    clearManualTags() {
+      this.manualTags = []
+    },
+    
+    applyManualTags() {
+      if (this.manualTags.length === 0) return
+      
+      // Merge manual tags with detected data
+      this.detectedData = [...this.detectedData, ...this.manualTags]
+      this.showManualSelection = false
+      this.manualTags = []
+      
+      this.showNotification(`Se añadieron las etiquetas manuales. Total: ${this.detectedData.length} datos`, 'success')
+    },
+    
+    getHighlightedText() {
+      let text = this.escapeHtml(this.originalText)
+      
+      // Sort tags by position (descending) to replace from end to start
+      const sortedTags = [...this.manualTags].sort((a, b) => b.start - a.start)
+      
+      sortedTags.forEach(tag => {
+        const escapedOriginal = this.escapeHtml(tag.original)
+        const regex = new RegExp(this.escapeRegex(escapedOriginal), 'g')
+        text = text.replace(regex, `<mark class="highlight-${this.getTagColor(tag.type)}">${escapedOriginal}</mark>`)
+      })
+      
+      return text.replace(/\n/g, '<br>')
+    },
+    
+    escapeHtml(text) {
+      const div = document.createElement('div')
+      div.textContent = text
+      return div.innerHTML
+    },
+    
+    escapeRegex(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    },
+    
+    generateId() {
+      return Math.random().toString(36).substring(2, 6)
+    },
+    
     async anonymizeText() {
       if (this.detectedData.length === 0) return
       
@@ -289,7 +501,13 @@ ES91 2100 0418 4502 0005 1332 solicitando documentación adicional.
           sensitiveItems: this.detectedData
         })
         
-        this.anonymizedText = response.data.anonymizedText
+        // Añadir instrucción para que la IA respete las etiquetas
+        const tagInstruction = `⚠️ INSTRUCCIÓN IMPORTANTE: En tu respuesta, DEBES mantener EXACTAMENTE las etiquetas entre corchetes (como [NOMBRE_xxxx], [EMAIL_xxxx], etc.) tal cual aparecen. NO las reemplaces ni modifiques. Responde normalmente pero preservando todas las etiquetas en su lugar correspondiente.
+
+---
+
+`
+        this.anonymizedText = tagInstruction + response.data.anonymizedText
         this.sessionId = response.data.sessionId
         
         // Guardar mapeo para restauración
@@ -329,7 +547,16 @@ ES91 2100 0418 4502 0005 1332 solicitando documentación adicional.
     },
     
     highlightTags(text) {
-      return text.replace(/\[([A-Z_]+)_([a-z0-9]+)\]/g, '<span class="tag-highlight">[$1_$2]</span>')
+      // Primero resaltar la instrucción especial
+      let highlighted = text.replace(
+        /(⚠️ INSTRUCCIÓN IMPORTANTE:.*?---)/s,
+        '<div class="ai-instruction">$1</div>'
+      )
+      // Luego resaltar las etiquetas
+      highlighted = highlighted.replace(/\[([A-Z_]+)_([a-z0-9]+)\]/g, '<span class="tag-highlight">[$1_$2]</span>')
+      // Convertir saltos de línea
+      highlighted = highlighted.replace(/\n/g, '<br>')
+      return highlighted
     },
     
     getTagColor(type) {
@@ -343,7 +570,13 @@ ES91 2100 0418 4502 0005 1332 solicitando documentación adicional.
         'IBAN': 'primary',
         'FECHA': 'success',
         'CP': 'primary',
-        'IP': 'warning'
+        'IP': 'warning',
+        'DIRECCION': 'info',
+        'EMPRESA': 'info',
+        'MATRICULA': 'secondary',
+        'NSS': 'warning',
+        'PASAPORTE': 'danger',
+        'OTRO': 'secondary'
       }
       return colors[type] || 'primary'
     },
@@ -546,6 +779,18 @@ ES91 2100 0418 4502 0005 1332 solicitando documentación adicional.
   font-weight: 600;
 }
 
+.result-box :deep(.ai-instruction) {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2) 0%, rgba(234, 88, 12, 0.15) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-left: 4px solid #f59e0b;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+  color: #fbbf24;
+  line-height: 1.5;
+}
+
 .result-info {
   display: flex;
   align-items: center;
@@ -646,6 +891,345 @@ ES91 2100 0418 4502 0005 1332 solicitando documentación adicional.
   .result-info {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* Manual Selection Modal Styles */
+.manual-selection-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.manual-selection-modal {
+  background: var(--white);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.modal-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--dark);
+}
+
+.btn-close {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--gray-100);
+  border: none;
+  font-size: 1.5rem;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-close:hover {
+  background: var(--gray-200);
+  color: var(--dark);
+}
+
+.modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.modal-instructions {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  padding: 16px;
+  border-radius: var(--radius);
+  margin-bottom: 20px;
+  font-size: 0.95rem;
+  color: var(--gray-600);
+  border-left: 4px solid var(--primary);
+}
+
+.text-selection-area {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.selectable-text {
+  background: var(--gray-50);
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius);
+  padding: 20px;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--dark);
+  min-height: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  cursor: text;
+  user-select: text;
+}
+
+.selectable-text::selection {
+  background: rgba(99, 102, 241, 0.3);
+}
+
+.selectable-text mark {
+  padding: 2px 4px;
+  border-radius: 4px;
+}
+
+.selectable-text .highlight-primary {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid var(--primary);
+}
+
+.selectable-text .highlight-success {
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid var(--success);
+}
+
+.selectable-text .highlight-warning {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid var(--warning);
+}
+
+.selectable-text .highlight-danger {
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid var(--danger);
+}
+
+.selectable-text .highlight-info {
+  background: rgba(6, 182, 212, 0.2);
+  border: 1px solid var(--accent);
+}
+
+.selectable-text .highlight-secondary {
+  background: rgba(100, 116, 139, 0.2);
+  border: 1px solid var(--gray-500);
+}
+
+/* Type Selector Popup */
+.type-selector-popup {
+  position: absolute;
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  padding: 16px;
+  z-index: 100;
+  min-width: 280px;
+  border: 1px solid var(--gray-200);
+  animation: popIn 0.2s ease;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.selected-preview {
+  font-size: 0.9rem;
+  color: var(--gray-600);
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--gray-100);
+  border-radius: 6px;
+  font-style: italic;
+  word-break: break-all;
+}
+
+.type-buttons {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.type-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 2px solid var(--gray-200);
+  border-radius: 8px;
+  background: var(--white);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.type-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.type-btn.primary:hover { border-color: var(--primary); background: rgba(99, 102, 241, 0.1); }
+.type-btn.success:hover { border-color: var(--success); background: rgba(16, 185, 129, 0.1); }
+.type-btn.warning:hover { border-color: var(--warning); background: rgba(245, 158, 11, 0.1); }
+.type-btn.danger:hover { border-color: var(--danger); background: rgba(239, 68, 68, 0.1); }
+.type-btn.info:hover { border-color: var(--accent); background: rgba(6, 182, 212, 0.1); }
+.type-btn.secondary:hover { border-color: var(--gray-500); background: rgba(100, 116, 139, 0.1); }
+
+.type-icon {
+  font-size: 1.1rem;
+}
+
+/* Manual Tags List */
+.manual-tags-list {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--gray-200);
+}
+
+.manual-tags-list h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--dark);
+  margin-bottom: 16px;
+}
+
+.tags-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.manual-tag-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--gray-50);
+  border-radius: var(--radius);
+  border: 1px solid var(--gray-200);
+}
+
+.tag-original {
+  font-weight: 500;
+  color: var(--dark);
+  flex: 1;
+  word-break: break-all;
+}
+
+.tag-arrow {
+  color: var(--gray-400);
+}
+
+.btn-remove {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--gray-200);
+  border: none;
+  color: var(--gray-500);
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-remove:hover {
+  background: var(--danger);
+  color: var(--white);
+}
+
+/* Modal Footer */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid var(--gray-200);
+  background: var(--gray-50);
+}
+
+.btn-outline-dark {
+  background: transparent;
+  border: 2px solid var(--gray-300);
+  color: var(--gray-600);
+  padding: 12px 24px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.btn-outline-dark:hover {
+  border-color: var(--dark);
+  color: var(--dark);
+}
+
+/* Action row with multiple buttons */
+.action-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn-secondary {
+  background: var(--white);
+  color: var(--primary);
+  border: 2px solid var(--primary);
+}
+
+.btn-secondary:hover {
+  background: var(--primary);
+  color: var(--white);
+}
+
+/* Tag colors */
+.tag-info {
+  background: rgba(6, 182, 212, 0.1);
+  color: var(--accent);
+}
+
+.tag-secondary {
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--gray-600);
+}
+
+@media (max-width: 640px) {
+  .manual-selection-modal {
+    max-height: 95vh;
+  }
+  
+  .type-buttons {
+    grid-template-columns: 1fr;
+  }
+  
+  .modal-footer {
+    flex-direction: column;
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
   }
 }
 </style>
